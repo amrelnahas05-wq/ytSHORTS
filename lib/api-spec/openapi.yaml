@@ -1,0 +1,384 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Video to Shorts Converter API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: jobs
+    description: Processing job operations
+  - name: clips
+    description: Generated clip operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List all jobs
+      description: Returns all processing jobs ordered by most recent
+      responses:
+        "200":
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+    post:
+      operationId: createJob
+      tags: [jobs]
+      summary: Create a new processing job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobInput"
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          description: Invalid input
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get a specific job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Job not found
+    delete:
+      operationId: deleteJob
+      tags: [jobs]
+      summary: Delete a job and its clips
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Job deleted
+        "404":
+          description: Job not found
+
+  /jobs/{id}/progress:
+    patch:
+      operationId: updateJobProgress
+      tags: [jobs]
+      summary: Update job progress (internal use)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobProgressUpdate"
+      responses:
+        "200":
+          description: Job updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /jobs/{id}/clips:
+    get:
+      operationId: getJobClips
+      tags: [jobs]
+      summary: Get all clips for a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of clips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Clip"
+
+  /clips/{clipId}:
+    get:
+      operationId: getClip
+      tags: [clips]
+      summary: Get clip details
+      parameters:
+        - name: clipId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Clip details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Clip"
+        "404":
+          description: Clip not found
+    patch:
+      operationId: updateClip
+      tags: [clips]
+      summary: Rename a clip
+      parameters:
+        - name: clipId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClipUpdate"
+      responses:
+        "200":
+          description: Clip updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Clip"
+    delete:
+      operationId: deleteClip
+      tags: [clips]
+      summary: Delete a specific clip
+      parameters:
+        - name: clipId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Clip deleted
+        "404":
+          description: Clip not found
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [jobs]
+      summary: Get dashboard statistics
+      description: Returns aggregate stats for the dashboard overview
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Job:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+          enum: [pending, uploading, analyzing, clipping, rendering, ready, failed, cancelled]
+        progress:
+          type: integer
+          description: 0-100
+        platform:
+          type: string
+          enum: [shorts, reels, both]
+        clipDuration:
+          type: integer
+          description: Target clip duration in seconds (15, 30, or 60)
+        autoCaptions:
+          type: boolean
+        originalFilename:
+          type: ["string", "null"]
+        originalDurationSeconds:
+          type: ["integer", "null"]
+        fileSizeMb:
+          type: ["number", "null"]
+        estimatedSecondsRemaining:
+          type: ["integer", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - status
+        - progress
+        - platform
+        - clipDuration
+        - autoCaptions
+        - createdAt
+        - updatedAt
+
+    JobInput:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        platform:
+          type: string
+          enum: [shorts, reels, both]
+        clipDuration:
+          type: integer
+          enum: [15, 30, 60]
+        autoCaptions:
+          type: boolean
+        originalFilename:
+          type: string
+        originalDurationSeconds:
+          type: integer
+        fileSizeMb:
+          type: number
+      required:
+        - title
+        - platform
+        - clipDuration
+        - autoCaptions
+
+    JobProgressUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, uploading, analyzing, clipping, rendering, ready, failed, cancelled]
+        progress:
+          type: integer
+        estimatedSecondsRemaining:
+          type: integer
+        errorMessage:
+          type: string
+
+    Clip:
+      type: object
+      properties:
+        id:
+          type: integer
+        jobId:
+          type: integer
+        name:
+          type: string
+        durationSeconds:
+          type: integer
+        startTimeSeconds:
+          type: integer
+        platform:
+          type: string
+          enum: [shorts, reels, both]
+        sceneLabel:
+          type: ["string", "null"]
+        downloadUrl:
+          type: ["string", "null"]
+        thumbnailUrl:
+          type: ["string", "null"]
+        viralScore:
+          type: ["integer", "null"]
+          description: AI-estimated viral potential 0-100
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - jobId
+        - name
+        - durationSeconds
+        - startTimeSeconds
+        - platform
+        - createdAt
+
+    ClipUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+
+    Stats:
+      type: object
+      properties:
+        totalJobs:
+          type: integer
+        completedJobs:
+          type: integer
+        processingJobs:
+          type: integer
+        totalClipsGenerated:
+          type: integer
+        totalVideoMinutesProcessed:
+          type: number
+        averageClipsPerJob:
+          type: number
+      required:
+        - totalJobs
+        - completedJobs
+        - processingJobs
+        - totalClipsGenerated
+        - totalVideoMinutesProcessed
+        - averageClipsPerJob
