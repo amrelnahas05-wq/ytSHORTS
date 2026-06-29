@@ -86,7 +86,8 @@ export default function UploadPage() {
       setUploadProgress(0);
     });
 
-    xhr.open("POST", "/api/upload");
+    const apiBase = import.meta.env.VITE_API_URL ?? "";
+    xhr.open("POST", `${apiBase}/api/upload`);
     xhr.send(formData);
   };
 

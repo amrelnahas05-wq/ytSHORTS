@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: ytshorts-api
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: >
+      npm install -g pnpm &&
+      sed -i 's/minimumReleaseAge: 1440/minimumReleaseAge: 0/' pnpm-workspace.yaml &&
+      pnpm install --no-frozen-lockfile &&
+      pnpm --filter @workspace/api-server run build
+    startCommand: bash scripts/start.sh
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ytshorts-db
+          property: connectionString
+
+databases:
+  - name: ytshorts-db
+    databaseName: ytshorts
+    plan: free
+    region: oregon
